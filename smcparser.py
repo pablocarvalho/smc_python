@@ -105,6 +105,8 @@ class Calc(Parser):
         'sub':'SUB',
         'mul':'MUL',
         'div':'DIV',
+        'not':'NOT',
+        'eq':'EQ'
     }
 
     tokens = list(reserved.values()) + [
@@ -112,8 +114,6 @@ class Calc(Parser):
         'EQUALS',
         'LPAREN', 'RPAREN',
         'SEMI',                
-        'EQ',        
-        'NOT',
     ]
 
     # Tokens
@@ -126,12 +126,6 @@ class Calc(Parser):
     t_EQUALS = r':='
     t_LPAREN = r'\('
     t_RPAREN = r'\)'
-
-
-
-    t_EQ = r'='
-
-    t_NOT = r"~"
 
     def t_NAME(self,t):
         r'[a-zA-Z_][a-zA-Z_0-9]*'
@@ -178,7 +172,13 @@ class Calc(Parser):
         'command : NAME EQUALS expression'
         #self.names[p[1]] = p[3]
         p[0] = nd.Node("assign",[p[1],p[3]],p[2])
-        
+    
+	#regra teste pra assign de booleano
+    def p_booleanexpression_assign(self, p):
+        'command : NAME EQUALS booleanexpression'
+        #self.names[p[1]] = p[3]
+        p[0] = nd.Node("boolassign",[p[1],p[3]],p[2])
+    
     def p_command_assignnil(self, p):
         'command : NIL'
         p[0] = nd.Node("nil", [], p[1])         
@@ -207,13 +207,14 @@ class Calc(Parser):
 
     def p_booleanexpression(self,p):
         'booleanexpression : NOT booleanexpression'
-        p[0] = nd.Node("booleanexpression", [p[2]], p[1])        
+        p[0] = nd.Node("booleanexpressionnot", [p[2]], p[1])        
 
     def p_booleanexpression_values(self,p):
         """ booleanexpression : TT 
                              | FF
         """
-        p[0] = nd.Node("booleanvalues", [], p[1]) 
+        #p[0] = nd.Node("booleanvalues", [], p[1]) 
+        p[0] = p[1]
 
     def p_booleanexpression_group(self, p):
         'booleanexpression : LPAREN booleanexpression RPAREN'

@@ -54,6 +54,41 @@ class SMCmachine:
 					self.c.push(child1)
 				
 				self.print_state()
+
+			elif(current_node.type == 'booleanexpression_binop'):
+				print current_node.leaf[0]
+				self.c.push(str(current_node.leaf))
+				child0 = self.load_program(current_node.children[0]) 	
+				child1 = self.load_program(current_node.children[1]) 	
+				if(child0 is not None):			
+					self.c.push(child0)
+				if(child1 is not None):			
+					self.c.push(child1)
+				self.print_state()
+			
+			elif(current_node.type == 'boolassign'):
+
+				child0 = self.load_program(current_node.children[0]) 					
+				if(child0 is not None):			
+					self.c.push(child0)
+				self.c.push(str(current_node.leaf))
+				child1 = self.load_program(current_node.children[1])
+				if(child1 is not None):			
+					self.c.push(child1)
+				
+				self.print_state()
+			elif(current_node.type == 'booleanvalues'):
+				self.c.push(current_node.leaf)
+				
+				self.print_state()
+			
+			elif(current_node.type == 'booleanexpressionnot'):
+				child0 = self.load_program(current_node.children[0]) 					
+				if(child0 is not None):			
+					self.c.push(child0)
+				self.c.push(str(current_node.leaf))
+				
+				self.print_state()
 		else:
 			return current_node		
 
@@ -72,7 +107,15 @@ class SMCmachine:
 			elif(isinstance(control,str)):
 				if(control == 'add' or control == 'div' or control == 'mul' or control == 'sub'):
 					self.evaluate_binary_op(control)	
-
+				
+				elif(control == 'and' or control == 'or'):
+					self.evaluate_binary_bool(control)	
+				
+				elif(control=='tt' or control=='ff'):
+					value = self.s.push(control);
+					
+					self.print_state();
+				
 				elif(control == ':='):
 					variable = self.c.pop();
 					value = self.s.pop();
@@ -127,6 +170,31 @@ class SMCmachine:
 			self.s.push(op1*op2);
 		if(operator == 'div'):
 			self.s.push(op1/op2);
+		self.print_state();
+
+	def evaluate_binary_bool(self,operator):
+		op1 = self.s.pop()		
+		op2 = self.s.pop()		
+		if(isinstance(op1,str) and not (op1 == 'tt' or op1 == 'ff')):
+			self.loadFromMemoryToS(op1)
+			op1 = self.s.pop();		
+		if(isinstance(op2,str)and not (op2 == 'tt' or op2 == 'ff')):
+			self.loadFromMemoryToS(op2)
+			op2 = self.s.pop();
+		temp1 = op1 == 'tt'
+		temp2 = op2 == 'tt'
+		self.print_state()
+		if(operator == 'and'):
+			if(temp1 and temp2):
+				self.s.push('tt')
+			else:
+				self.s.push('ff')
+		if(operator == 'or'):
+			if(temp1 or temp2):
+				self.s.push('tt')
+			else:
+				self.s.push('ff')
+		
 		self.print_state();
 
 	def loadFromMemoryToS(self,varName):
