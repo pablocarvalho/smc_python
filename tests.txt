@@ -1,1 +1,3 @@
 a := 1; if (a=1) then nil else nil
+
+x := 1; while(tt or tt) do ( x := add(x 1) )

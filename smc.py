@@ -10,10 +10,14 @@ class SMCmachine:
          self.s = Stack()
          self.m = []
          self.c = Stack()
+         self.debug = True
 
 	def print_state(self):
-		state = '<'+ str(self.s.items) + 'S,' + str(self.m) + 'M,' + str(self.c.items) + 'C>'
-		print state
+		if(self.debug == True):
+			state = '<'+ str(self.s.items) + 'S,' + str(self.m) + 'M,' + str(self.c.items) + 'C>'
+			print state
+
+
 
 
 	def load_program(self, current_node):
@@ -56,7 +60,6 @@ class SMCmachine:
 				self.print_state()
 
 			elif(current_node.type == 'booleanexpression_binop'):
-				print current_node.leaf[0]
 				self.c.push(str(current_node.leaf))
 				child0 = self.load_program(current_node.children[0]) 	
 				child1 = self.load_program(current_node.children[1]) 	
@@ -89,57 +92,172 @@ class SMCmachine:
 				self.c.push(str(current_node.leaf))
 				
 				self.print_state()
+
+			elif(current_node.type == 'loop'):
+
+				
+				child1 = self.load_program(current_node.children[1])
+				if(child1 is not None):			
+					self.c.push(child1)
+
+				self.c.push(current_node.leaf[1])	
+				child0 = self.load_program(current_node.children[0]) 					
+				if(child0 is not None):			
+					self.c.push(child0)
+				self.c.push(current_node.leaf[0])	
+				
+				
+				self.print_state()
+
+			elif(current_node.type == 'command_block' or current_node.type == 'booleanexpression_block'):
+				blockContent = Stack()				
+				self.c.push(current_node.leaf[0])
+				first_par_pos = self.c.size() - 1
+				child0 = self.load_program(current_node.children[0]) 										
+				self.c.push(current_node.leaf[1])				
+				last_par_pos = self.c.size() - 1
+				self.print_state()
+
+				block_elements_list = self.c.items[ (first_par_pos+1) : (last_par_pos) ]   
+				#print "block: " + str(block_elements_list)
+				blockContent.items = block_elements_list
+				
+				#print "inicio:" + str(first_par_pos) + " fim:" + str(last_par_pos)
+
+				del self.c.items[first_par_pos:last_par_pos+1]
+
+				if(current_node.type == 'command_block'):
+					commandBlock = Command(blockContent)
+					self.c.push(commandBlock)
+				else:
+					commandBlock = BooleanBlock(blockContent)
+					self.c.push(commandBlock)
+
+				#for i in range(first_par_pos, last_par_pos-2):					
+				#	del self.c.items[i]					
+
+				self.print_state()
+
 		else:
 			return current_node		
 
 
 	def run_program(self):
 
-		
+		print "\n running program \n"
 		while(not self.c.isEmpty() ):
 
 			control = self.c.pop()
-
-			if(isinstance(control,numbers.Number)):
-				self.s.push(control)
-				self.print_state();
-
-			elif(isinstance(control,str)):
-				if(control == 'add' or control == 'div' or control == 'mul' or control == 'sub'):
-					self.evaluate_binary_op(control)	
-				
-				elif(control == 'and' or control == 'or'):
-					self.evaluate_binary_bool(control)	
-				
-				elif(control=='tt' or control=='ff'):
-					value = self.s.push(control);
-					
-					self.print_state();
-				
-				elif(control == ':='):
-					variable = self.c.pop();
-					value = self.s.pop();
-					memoryPos = self.var_exists(variable)
-
-					if(memoryPos == -1):
-						memoryCell = MemoryCell(value,variable)
-						self.m.append(memoryCell)
-						#memAddress = MemoryAddress(len(self.m) - 1)
-						#self.s.push(memAddress)
-						#self.s.push(variable)
-					else:
-						self.m[memoryPos].data = value
-						##memAddress = MemoryAddress(memoryPos)
-						#self.s.push(memAddress)
-				elif(control == ';'):
-					self.print_state()
-				else:
-					self.s.push(control)
-					self.print_state();
-
+			self.eval_control(control)
 
 		
 		self.print_state();
+
+
+	def eval_control(self, control):
+		if(isinstance(control,numbers.Number)):
+				self.s.push(control)
+				self.print_state();
+
+		elif(isinstance(control,str)):
+			if(control == 'add' or control == 'div' or control == 'mul' or control == 'sub'):
+				self.evaluate_binary_op(control)	
+				
+			elif(control == 'and' or control == 'or'):
+				self.evaluate_binary_bool(control)	
+				
+			elif(control=='tt' or control=='ff'):
+				value = self.s.push(control);					
+				self.print_state();
+
+			elif(control=='while'):
+				self.print_state();
+				booleanblock = self.c.pop()
+
+				#booleanblock_copy = BooleanBlock(list(booleanblock.content.items))				
+				#self.eval_control(booleanblock_copy)
+				self.eval_while_booleanblock(booleanblock)
+
+				eval_result = self.s.pop()
+				do_word = self.c.pop()
+				self.print_state();
+
+				commandblock = self.c.pop()
+
+				cmdstack = Stack()
+				cmdstack.items = list(commandblock.command.items)
+				commandblock_copy = Command(cmdstack)	
+
+				#print commandblock_copy.command.items			
+
+				if(eval_result == 'tt'):
+					self.eval_command_block(commandblock_copy)
+
+					self.c.push(commandblock)	
+					self.c.push(do_word)
+					self.c.push(booleanblock)
+					self.c.push(control)
+					self.print_state()
+
+
+			
+			elif(control == ':='):
+				variable = self.c.pop();
+				value = self.s.pop();
+				memoryPos = self.var_exists(variable)
+
+				if(memoryPos == -1):
+					memoryCell = MemoryCell(value,variable)
+					self.m.append(memoryCell)
+					#memAddress = MemoryAddress(len(self.m) - 1)
+					#self.s.push(memAddress)
+					#self.s.push(variable)
+				else:
+					self.m[memoryPos].data = value
+					##memAddress = MemoryAddress(memoryPos)
+					#self.s.push(memAddress)
+			elif(control == ';'):
+				self.print_state()
+			else:
+				self.s.push(control)
+				self.print_state();
+		
+
+	def eval_while_booleanblock(self, booleanblock):
+		booleanList = booleanblock.content.items
+		self.c.items.extend(booleanList)
+		self.print_state();
+
+		localControl = ""
+		
+		while(localControl != "do"):
+			localControl = self.c.pop();
+			
+			if(localControl=='tt' or localControl=='ff'):
+				value = self.s.push(localControl);					
+				self.print_state();
+				
+			elif(localControl == 'and' or localControl == 'or'):
+				self.evaluate_binary_bool(localControl)
+
+		self.c.push("do")
+
+	def eval_command_block(self, commandblock):
+		self.debug = False
+		actualControlStack = list(self.c.items)
+		self.c.items = commandblock.command.items
+		print "command_block" + str(actualControlStack)
+
+		while(not self.c.isEmpty() ):
+
+			control = self.c.pop()
+			self.eval_control(control)
+
+		self.c.items = actualControlStack
+
+		self.debug = True
+
+		
 
 
 	def var_exists(self,varName):
@@ -195,6 +313,8 @@ class SMCmachine:
 			else:
 				self.s.push('ff')
 		
+
+		
 		self.print_state();
 
 	def loadFromMemoryToS(self,varName):
@@ -241,5 +361,23 @@ class MemoryAddress:
 
 	def __repr__(self):
 		return "M("+str(self.address)+")"
+
+class Command:
+	def __init__(self, commandlist):
+		self.command = commandlist
+	def __repr__(self):
+		return "c("+str(self.command.items)+")"
+
+class BooleanBlock:
+	def __init__(self, booleanBlockcontent):
+		self.content = booleanBlockcontent
+	def __repr__(self):
+		return "c("+str(self.content.items)+")"
+
+class Value:
+	def __init__(self, commandstring):
+		self.command = comandstring
+	def __repr__(self):
+		return "v("+str(self.command)+")"
 
 

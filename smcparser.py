@@ -186,11 +186,15 @@ class Calc(Parser):
     def p_command_separator(self, p):
         'command : command SEMI command'
         p[0] = nd.Node("separator", [p[1],p[3]], p[2])
+
+    def p_command_block(self, p):
+        'command : LPAREN command RPAREN'
+        p[0] = nd.Node("command_block", [p[2]], [p[1],p[3]])        
         
 
     def p_command_conditional(self,p):
         'command : IF booleanexpression THEN command ELSE command'
-        p[0] = nd.Node("conditional", [p[2],p[4],p[6]], [p[1],p[3],p[5]])        
+        p[0] = nd.Node("conditional", [p[2],p[4],p[6]], [p[1],p[3],p[5]])             
 
     def p_command_loop(self,p):
         'command : WHILE booleanexpression DO command'
@@ -218,7 +222,8 @@ class Calc(Parser):
 
     def p_booleanexpression_group(self, p):
         'booleanexpression : LPAREN booleanexpression RPAREN'
-        p[0] = p[2]
+        #p[0] = p[2]
+        p[0] = nd.Node("booleanexpression_block", [p[2]], [p[1],p[3]])        
 
     def p_expression_binop(self, p):
         """
