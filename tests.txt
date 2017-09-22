@@ -1,3 +1,18 @@
 a := 1; if (a=1) then nil else nil
 
 x := 1; while(tt or tt) do ( x := add(x 1) )
+
+x := 0; while (not( x eq 10)) do ( x:= add(x 1))
+
+
+
+Contador
+x := 0; while (not x eq 10) do ( x:= add(x 1))
+
+Fatorial
+x:=5; y := 1 ; while(not x eq 0) do (y := mul(y, x) ; x := sub(x, 1))
+
+testes condicional
+x:= 0 ; if(not x eq 0) then (x:=1) else (x:=10)
+
+x:= 0 ; if(x eq 0) then (x:=1) else (x:=10)
