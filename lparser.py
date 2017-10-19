@@ -138,6 +138,12 @@ class Calc(Parser):
         self.names[p[1]] = p[3]
         p[0] = nd.Node("assign",[p[1],p[3]],p[2])
 
+	#regra teste pra assign de booleano
+    def p_booleanexpression_assign(self, p):
+        'command : NAME EQUALS booleanexpression'
+        #self.names[p[1]] = p[3]
+        p[0] = nd.Node("boolassign",[p[1],p[3]],p[2])	
+		
     def p_command_assignnil(self, p):
         'command : NIL'
         p[0] = nd.Node("nil", [], p[1])         
