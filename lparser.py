@@ -171,7 +171,7 @@ class Calc(Parser):
 
     def p_booleanexpression(self,p):
         'booleanexpression : NOT booleanexpression'
-        p[0] = nd.Node("booleanexpression", [p[2]], p[1])        
+        p[0] = nd.Node("booleanexpressionnot", [p[2]], p[1])        
 
     def p_booleanexpression_values(self,p):
         """ booleanexpression : TT 

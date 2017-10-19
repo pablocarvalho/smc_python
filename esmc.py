@@ -185,7 +185,7 @@ class SMCmachine:
 				value = self.s.push(control);					
 				self.print_state();
 
-			elif(control =='not'):
+			elif(control =='~'):
 				value = self.s.pop();
 				if(value == 'tt'):
 					self.s.push('ff')
