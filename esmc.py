@@ -178,7 +178,7 @@ class SMCmachine:
 			if(control == '+' or control == '/' or control == '*' or control == '-'):
 				self.evaluate_binary_op(control)	
 				
-			elif(control == 'and' or control == 'or' or control == 'eq'):
+			elif(control == 'and' or control == 'or' or control == '='):
 				self.evaluate_binary_bool(control)	
 				
 			elif(control=='tt' or control=='ff'):
@@ -337,7 +337,7 @@ class SMCmachine:
 		op1 = self.s.pop()		
 		op2 = self.s.pop()
 
-		if(operator == "eq"):		
+		if(operator == "="):		
 			if(isinstance(op1,str)):
 				self.loadFromMemoryToS(op1)
 				op1 = self.s.pop();		
