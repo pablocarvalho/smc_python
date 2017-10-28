@@ -142,8 +142,8 @@ class Calc(Parser):
     def p_booleanexpression_assign(self, p):
         'command : NAME EQUALS booleanexpression'
         #self.names[p[1]] = p[3]
-        p[0] = nd.Node("boolassign",[p[1],p[3]],p[2])	
-		
+        p[0] = nd.Node("boolassign",[p[1],p[3]],p[2])		
+    
     def p_command_assignnil(self, p):
         'command : NIL'
         p[0] = nd.Node("nil", [], p[1])         
@@ -152,13 +152,18 @@ class Calc(Parser):
         'command : command SEMI command'
         p[0] = nd.Node("separator", [p[1],p[3]], p[2])
 
+    def p_command_block(self, p):
+        'command : LPAREN command RPAREN'
+        p[0] = nd.Node("command_block", [p[2]], [p[1],p[3]])        
+        
+
     def p_command_conditional(self,p):
         'command : IF booleanexpression THEN command ELSE command'
-        p[0] = nd.Node("conditional", [p[2],p[4],p[6]], [p[1],p[3],p[5]])        
+        p[0] = nd.Node("conditional", [p[2],p[4],p[6]], [p[1],p[3],p[5]])             
 
     def p_command_loop(self,p):
         'command : WHILE booleanexpression DO command'
-        p[0] = nd.Node("loop", [p[2],p[4]], [p[1],p[3]])        
+        p[0] = nd.Node("loop", [p[2],p[4]], [p[1],p[3]])
 
 
     def p_booleanexpression_binop(self,p):
@@ -177,11 +182,7 @@ class Calc(Parser):
         """ booleanexpression : TT 
                              | FF
         """
-        p[0] = nd.Node("booleanvalues", [], p[1]) 
-
-    def p_booleanexpression_group(self, p):
-        'booleanexpression : LPAREN booleanexpression RPAREN'
-        p[0] = p[2]
+        p[0] = nd.Node("booleanvalues", [], p[1])
 
     def p_expression_binop(self, p):
         """
@@ -197,11 +198,14 @@ class Calc(Parser):
         'expression : MINUS expression %prec UMINUS'
         p[0] = -p[2]
 
+    def p_booleanexpression_group(self, p):
+        'booleanexpression : LPAREN booleanexpression RPAREN'
+        #p[0] = p[2]
+        p[0] = nd.Node("booleanexpression_block", [p[2]], [p[1],p[3]]) 
+
     def p_expression_group(self, p):
         'expression : LPAREN expression RPAREN'
-        p[0] = p[2]
-
-
+        p[0] = p[2]	
 
     def p_expression_number(self, p):
         'expression : NUMBER'
