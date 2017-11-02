@@ -158,11 +158,17 @@ class Calc(Parser):
         
 
     def p_command_conditional(self,p):
-        'command : IF booleanexpression THEN command ELSE command'
+        """
+		command : IF booleanexpression THEN command ELSE command
+               |  IF expression THEN command ELSE command
+		"""
         p[0] = nd.Node("conditional", [p[2],p[4],p[6]], [p[1],p[3],p[5]])             
 
     def p_command_loop(self,p):
-        'command : WHILE booleanexpression DO command'
+        """
+		command : WHILE booleanexpression DO command
+               |  WHILE expression DO command
+		"""
         p[0] = nd.Node("loop", [p[2],p[4]], [p[1],p[3]])
 
 
@@ -170,6 +176,8 @@ class Calc(Parser):
         """
         booleanexpression : booleanexpression OR booleanexpression            
                          | booleanexpression AND booleanexpression            
+                         | expression EQ booleanexpression            
+                         | booleanexpression EQ expression            
                          | expression EQ expression            
         """
         p[0] = nd.Node("booleanexpression_binop", [p[1],p[3]], p[2])
@@ -182,7 +190,7 @@ class Calc(Parser):
         """ booleanexpression : TT 
                              | FF
         """
-        p[0] = nd.Node("booleanvalues", [], p[1])
+        p[0] = p[1]
 
     def p_expression_binop(self, p):
         """
@@ -213,11 +221,12 @@ class Calc(Parser):
 
     def p_expression_name(self, p):
         'expression : NAME'
-        try:
-            p[0] = self.names[p[1]]
-        except LookupError:
-            print("Undefined name '%s'" % p[1])
-            p[0] = 0
+        p[0] = p[1]
+        # try:
+            # p[0] = self.names[p[1]]
+        # except LookupError:
+            # print("Undefined name '%s'" % p[1])
+            # p[0] = 0
 
     def p_error(self, p):
         if p:
