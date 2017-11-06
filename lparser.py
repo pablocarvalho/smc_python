@@ -64,6 +64,12 @@ class Calc(Parser):
         'nil':'NIL',
         'or':'OR',
         'and':'AND',
+        'const':'CONST',
+        'var':'VAR',
+        'let':'LET',
+        'in':'IN',
+        'bool':'BOOL',
+        'int':'INT',
     }
 
     tokens = list(reserved.values()) + [
@@ -73,6 +79,7 @@ class Calc(Parser):
         'SEMI',                
         'EQ',        
         'NOT',
+        'COLON',
     ]
 
     # Tokens
@@ -86,9 +93,8 @@ class Calc(Parser):
     t_LPAREN = r'\('
     t_RPAREN = r'\)'
 
-
-
     t_EQ = r'='
+    t_COLON = r':'
 
     t_NOT = r"~"
 
@@ -158,11 +164,17 @@ class Calc(Parser):
         
 
     def p_command_conditional(self,p):
-        'command : IF booleanexpression THEN command ELSE command'
+        """
+		command : IF booleanexpression THEN command ELSE command
+               |  IF expression THEN command ELSE command
+		"""
         p[0] = nd.Node("conditional", [p[2],p[4],p[6]], [p[1],p[3],p[5]])             
 
     def p_command_loop(self,p):
-        'command : WHILE booleanexpression DO command'
+        """
+		command : WHILE booleanexpression DO command
+               |  WHILE expression DO command
+		"""
         p[0] = nd.Node("loop", [p[2],p[4]], [p[1],p[3]])
 
 
@@ -170,6 +182,8 @@ class Calc(Parser):
         """
         booleanexpression : booleanexpression OR booleanexpression            
                          | booleanexpression AND booleanexpression            
+                         | expression EQ booleanexpression            
+                         | booleanexpression EQ expression            
                          | expression EQ expression            
         """
         p[0] = nd.Node("booleanexpression_binop", [p[1],p[3]], p[2])
@@ -182,7 +196,7 @@ class Calc(Parser):
         """ booleanexpression : TT 
                              | FF
         """
-        p[0] = nd.Node("booleanvalues", [], p[1])
+        p[0] = p[1]
 
     def p_expression_binop(self, p):
         """
@@ -213,11 +227,73 @@ class Calc(Parser):
 
     def p_expression_name(self, p):
         'expression : NAME'
-        try:
-            p[0] = self.names[p[1]]
-        except LookupError:
-            print("Undefined name '%s'" % p[1])
-            p[0] = 0
+        p[0] = p[1]
+        # try:
+            # p[0] = self.names[p[1]]
+        # except LookupError:
+            # print("Undefined name '%s'" % p[1])
+            # p[0] = 0
+
+    def p_command_declaration(self, p):
+        'command : declaration'
+        p[0] = p[1]
+
+    def p_declaration_int(self, p):
+        """
+        declaration : CONST NAME COLON INT EQ expression
+                  | VAR NAME COLON INT EQ expression
+        """
+        p[0] = nd.Node("declaration", [p[1],p[2],p[4],p[6]], [p[3],p[5]])
+
+    def p_declaration_bool(self, p):
+        """
+        declaration : CONST NAME COLON BOOL EQ booleanexpression
+                  | VAR NAME COLON BOOL EQ booleanexpression
+        """
+        p[0] = nd.Node("booldeclaration", [p[1],p[2],p[4],p[6]], [p[3],p[5]])
+
+    def p_declaration_and(self, p):
+        """
+        declaration : declaration AND declaration
+        """
+        p[0] = nd.Node("declarationand", [p[1],p[3]], p[2])
+
+    def p_declaration_in(self, p):
+        """
+        declaration : declaration IN declaration
+        """
+        p[0] = nd.Node("declarationin", [p[1],p[3]], p[2])
+
+    def p_declaration_let(self, p):
+        """
+        declaration : LET declaration IN expression
+        """
+        p[0] = nd.Node("declarationlet", [p[2],p[4]], [p[1],p[3]])
+
+    def p_command_assign_if(self, p):
+        """command : NAME EQUALS IF booleanexpression THEN expression ELSE expression
+                     |  NAME EQUALS IF expression THEN expression ELSE expression
+		"""
+        # self.names[p[1]] = p[3]
+        p[0] = nd.Node("assignif",[p[1],p[4],p[6],p[8]],[p[2],p[3],p[5],p[7]])
+
+    def p_expression_declaration_bool_if(self, p):
+        """declaration : CONST NAME COLON BOOL EQ IF booleanexpression THEN expression ELSE expression
+                  |  VAR NAME COLON BOOL EQ IF booleanexpression THEN expression ELSE expression
+                  |  CONST NAME COLON BOOL EQ IF expression THEN expression ELSE expression
+                  |  VAR NAME COLON BOOL EQ IF expression THEN expression ELSE expression
+		"""
+        # self.names[p[1]] = p[3]
+        p[0] = nd.Node("declarationboolif",[p[1],p[2],p[4],p[7],p[9],p[11]],[p[3],p[5],p[6],p[8],p[10]])
+
+    def p_expression_declaration_int_if(self, p):
+        """declaration : CONST NAME COLON INT EQ IF booleanexpression THEN expression ELSE expression
+                  |  VAR NAME COLON INT EQ IF booleanexpression THEN expression ELSE expression
+                  |  CONST NAME COLON INT EQ IF expression THEN expression ELSE expression
+                  |  VAR NAME COLON INT EQ IF expression THEN expression ELSE expression
+		"""
+        # self.names[p[1]] = p[3]
+        p[0] = nd.Node("declarationintif",[p[1],p[2],p[4],p[7],p[9],p[11]],[p[3],p[5],p[6],p[8],p[10]])
 
     def p_error(self, p):
         if p:
