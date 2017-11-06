@@ -3,6 +3,7 @@ import ply.yacc as yacc
 import os
 import numbers
 import node as nd
+from enum import Enum
 
 
 class SMCmachine:
@@ -10,11 +11,12 @@ class SMCmachine:
          self.s = Stack()
          self.m = []
          self.c = Stack()
+         self.e = Stack()
          self.debug = True
 
 	def print_state(self):
 		if(self.debug == True):
-			state = '<'+ str(self.s.items) + 'S,' + str(self.m) + 'M,' + str(self.c.items) + 'C>'
+			state = '<'+ str(self.e.items) + 'E,  '+ str(self.s.items) + 'S,  ' + str(self.m) + 'M,  ' + str(self.c.items) + 'C>'
 			print state
 
 
@@ -153,6 +155,28 @@ class SMCmachine:
 
 				self.print_state()
 
+			elif(current_node.type == 'declaration_var'):
+				child0 = self.load_program(current_node.children[0]) 					
+				if(child0 is not None):			
+					self.c.push(child0)
+				self.c.push(str(current_node.leaf[0]))
+				child1 = self.load_program(current_node.children[2])
+				if(child1 is not None):			
+					self.c.push(child1)
+				
+				self.print_state()
+
+			elif(current_node.type == 'declaration_const'):
+				child0 = self.load_program(current_node.children[0]) 					
+				if(child0 is not None):			
+					self.c.push(child0)
+				self.c.push(str(current_node.leaf[0]))
+				child1 = self.load_program(current_node.children[2])
+				if(child1 is not None):			
+					self.c.push(child1)
+				
+				self.print_state()
+
 		else:
 			return current_node		
 
@@ -181,17 +205,13 @@ class SMCmachine:
 			elif(control == 'and' or control == 'or' or control == 'eq'):
 				self.evaluate_binary_bool(control)	
 				
-			elif(control=='tt' or control=='ff'):
-				value = self.s.push(control);					
+			elif(control=='true' or control=='false'):
+				value = self.s.push(control == 'true');					
 				self.print_state();
 
 			elif(control =='not'):
 				value = self.s.pop();
-				if(value == 'tt'):
-					self.s.push('ff')
-				else:
-					self.s.push('tt')
-
+				self.s.push(not value)
 
 			elif(control=='while'):
 				self.print_state();
@@ -215,7 +235,7 @@ class SMCmachine:
 				commandblock_copy = Command(cmdstack)	
 
 
-				if(eval_result == 'tt'):
+				if(eval_result):
 					self.eval_command_block(commandblock_copy)
 
 					self.c.push(commandblock)	
@@ -242,7 +262,7 @@ class SMCmachine:
 				elsecommandblock = self.c.pop()
 				self.print_state()
 
-				if(eval_result == 'tt'):
+				if(eval_result):
 					self.eval_command_block(commandblock)
 				else:
 					self.eval_command_block(elsecommandblock)
@@ -253,20 +273,37 @@ class SMCmachine:
 			elif(control == ':='):
 				variable = self.c.pop();
 				value = self.s.pop();
-				memoryPos = self.var_exists(variable)
+				enviromentPos = self.enviromentSearch(variable)
 
-				if(memoryPos == -1):
-					memoryCell = MemoryCell(value,variable)
-					self.m.append(memoryCell)
-					#memAddress = MemoryAddress(len(self.m) - 1)
-					#self.s.push(memAddress)
-					#self.s.push(variable)
+				if(enviromentPos == -1):
+					raise Exception("variable or constant '"+variable+"' not found")
 				else:
-					self.m[memoryPos].data = value
-					##memAddress = MemoryAddress(memoryPos)
-					#self.s.push(memAddress)
+					self.m.append(MemoryCell(value,variable))
+					self.e.items[enviromentPos].address = len(self.m) - 1 
+					
 			elif(control == ';'):
 				self.print_state()
+
+			elif(control == 'const'):				
+				constName = self.c.pop()
+				value = self.s.pop() #get a value from values stack
+				if(isinstance(value,numbers.Number) or isinstance(value,bool)):
+					self.storeConstOnEnviroment(EnviromentConst(constName,value))					
+				else:
+					raise Exception("Unknown type '"+type(value).__name__+"' when declaring constant")
+
+				self.print_state()
+
+			elif(control == 'var'):				
+				varName = self.c.pop()
+				value = self.s.pop() #get a value from values stack
+				if(isinstance(value,numbers.Number) or isinstance(value,bool)):
+					self.storeVarOnMemory(varName,value)
+				else:
+					raise Exception("Unknown type '"+type(value).__name__+"' when declaring constant")
+
+				self.print_state()
+
 			else:
 				self.s.push(control)
 				self.print_state();
@@ -287,6 +324,7 @@ class SMCmachine:
 
 		self.debug = True
 
+
 	def eval_boolean_block(self, booleanblock):
 		self.debug = False
 
@@ -303,25 +341,31 @@ class SMCmachine:
 
 		self.debug = True
 
-	def var_exists(self,varName):
+	def enviromentSearch(self,varName):
 		index = 0
-		for cell in self.m:
-			if(varName == cell.variableName):
-				return index
+		for item in self.e.items:
+			if(isinstance(item,EnviromentConst)):
+				if(item.name == varName):
+					return index
+			elif(isinstance(item,MemoryAddress)):
+				memoryCell = self.m[item.address]
+				if(memoryCell.variableName == varName):
+					return index
 			index+=1
 
 		return -1
 
 	def evaluate_binary_op(self,operator):
 		op1 = self.s.pop()		
-		op2 = self.s.pop()		
+		op2 = self.s.pop()				
 		if(isinstance(op1,str)):
 			self.loadFromMemoryToS(op1)
 			op1 = self.s.pop();		
 		if(isinstance(op2,str)):
 			self.loadFromMemoryToS(op2)
 			op2 = self.s.pop();
-		
+
+				
 		self.print_state()
 		if(operator == 'add'):
 			self.s.push(op1+op2);
@@ -337,47 +381,80 @@ class SMCmachine:
 		op1 = self.s.pop()		
 		op2 = self.s.pop()
 
-		if(operator == "eq"):		
-			if(isinstance(op1,str)):
-				self.loadFromMemoryToS(op1)
-				op1 = self.s.pop();		
-			if(isinstance(op2,str)):
-				self.loadFromMemoryToS(op2)
-				op2 = self.s.pop();
+		if(not isinstance(op1,bool) and not isinstance(op1,numbers.Number)):
+			self.loadFromMemoryToS(op1)
+			op1 = self.s.pop();
+		if(not isinstance(op2,bool) and not isinstance(op2,numbers.Number)):
+			self.loadFromMemoryToS(op2)
+			op2 = self.s.pop();		
 
-			if(op1 == op2):
-				self.s.push('tt')
+		if(operator == "eq"):
+			if(isinstance(op1,numbers.Number) and isinstance(op2,numbers.Number)):
+				self.s.push(op1 == op2)			
 			else:
-				self.s.push('ff')
+				raise Exception("impossible to compare values "+ str(op1) + " and " + str(op2))
 
 		else:
-			if(isinstance(op1,str) and not (op1 == 'tt' or op1 == 'ff')):
-				self.loadFromMemoryToS(op1)
-				op1 = self.s.pop();		
-			if(isinstance(op2,str)and not (op2 == 'tt' or op2 == 'ff')):
-				self.loadFromMemoryToS(op2)
-				op2 = self.s.pop();
-			temp1 = op1 == 'tt'
-			temp2 = op2 == 'tt'
-			self.print_state()
+			#if(isinstance(op1,str) and not (op1 == 'true' or op1 == 'false')):
+			#	self.loadFromMemoryToS(op1)
+			#	op1 = self.s.pop();		
+			#if(isinstance(op2,str)and not (op2 == 'true' or op2 == 'false')):
+			#	self.loadFromMemoryToS(op2)
+			#	op2 = self.s.pop();			
+			#self.print_state()
 			if(operator == 'and'):
-				if(temp1 and temp2):
-					self.s.push('tt')
-				else:
-					self.s.push('ff')
+				self.s.push(op1 and op2)
 			if(operator == 'or'):
-				if(temp1 or temp2):
-					self.s.push('tt')
-				else:
-					self.s.push('ff')
+				self.s.push(op1 or op2)				
 		
 		self.print_state();
 
 	def loadFromMemoryToS(self,varName):
-		address = self.var_exists(varName)
-		memCell = self.m[address]
-		self.s.push(memCell.data)
-		self.print_state()
+		address = self.enviromentSearch(varName)
+
+		if(address == -1):
+			raise Exception("var '" +varName +"' not found")
+		else:
+			enviromentItem = self.e.items[address]
+			if(isinstance(enviromentItem,EnviromentConst)):
+				data = enviromentItem.value
+				self.s.push(data)
+			elif(isinstance(enviromentItem,MemoryAddress)):
+				memoryCell = self.m[enviromentItem.address]
+				self.s.push(memoryCell.data)
+			self.print_state()
+
+	def storeConstOnEnviroment(self,enviromentConst):
+
+		#check for 
+		for envItem in self.e.items:
+			if(isinstance(envItem,EnviromentConst)):
+				if(envItem.name == enviromentConst.name):
+					raise Exception("const "+envItem.name+ " already declared on enviroment")
+
+		self.e.push(enviromentConst)
+
+	def storeVarOnMemory(self,varName,varValue):
+		for memItem in self.m:
+			if(memItem.variableName == varName):
+				raise Exception("variable "+varName+ " already defined")
+
+		self.m.append(MemoryCell(varValue,varName))
+		self.e.push(MemoryAddress(type(varValue),len(self.m) - 1))			
+				
+
+	def loadFromEnviroment(self, varName):
+
+		for envItem in self.e.items:
+			if(isinstance(envItem,EnviromentConst) and envItem.name == varName):
+				self.s.push(envItem.value)
+			elif(isinstance(envItem,MemoryAddress)):
+				memoryCell = self.m[envItem.address]
+				if(memoryCell.variableName == varName):
+					self.s.push(memoryCell.data)			
+
+
+
 
 class Stack:
      def __init__(self):
@@ -407,11 +484,21 @@ class MemoryCell:
 
 
 class MemoryAddress:
-	def __init__(self, address):
-		self.address = address	
+	def __init__(self, varType, memoryReference):
+		self.type = varType	
+		self.address = memoryReference	
 
 	def __repr__(self):
-		return "M("+str(self.address)+")"
+		return "MemAddr("+self.type.__name__+"|"+str(self.address)+")"
+
+class EnviromentConst:
+	def __init__(self, name,value):
+		self.name = name
+		self.value = value	
+		self.type = type(value).__name__
+
+	def __repr__(self):
+		return "EnvConst("+self.type+" "+self.name+"="+str(self.value)+")"
 
 class Command:
 	def __init__(self, commandlist):

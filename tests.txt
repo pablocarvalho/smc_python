@@ -16,3 +16,16 @@ testes condicional
 x:= 0 ; if(not x eq 0) then (x:=1) else (x:=10)
 
 x:= 0 ; if(x eq 0) then (x:=1) else (x:=10)
+
+
+
+Testes para versão com enviroment:
+
+var a : T = 20; var b : T = 30; var c : T = add(a b); nil
+
+const a : T = 20; var b : T = 30; var c : T = add(a b); nil
+
+const a : T = 20; var b : T = 30; b := add(a b)
+
+Fatorial
+var x : T = 5; var y :T = 1 ; while(not x eq 0) do (y := mul(y, x) ; x := sub(x, 1))
