@@ -114,6 +114,8 @@ class Calc(Parser):
         'const':'CONST',
         'var':'VAR',
         'T':'TYPE',
+        'endif':'ENDIF',
+        
     }
 
     tokens = list(reserved.values()) + [
@@ -283,8 +285,12 @@ class Calc(Parser):
 
     def p_expression_number(self, p):
         'expression : NUMBER'
-        p[0] = p[1]        
-        
+        p[0] = p[1]
+
+    def p_expression_conditional(self,p):
+        'expression : IF booleanexpression THEN expression ELSE expression ENDIF'
+        p[0] = nd.Node("expression_conditional", [p[2],p[4],p[6]], [p[1],p[3],p[5],p[7]])        
+
     def p_expression_name(self, p):
         'expression : NAME'
         p[0] = p[1]

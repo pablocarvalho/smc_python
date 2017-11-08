@@ -27,5 +27,17 @@ const a : T = 20; var b : T = 30; var c : T = add(a b); nil
 
 const a : T = 20; var b : T = 30; b := add(a b)
 
+var a : T = 20; if(a eq 20) then (var b : T = 30; nil) else (var c : T = 40; nil)
+
+var a : T = if(true and true) then 21 else 40 endif; nil
+var a : T = if(true and false) then 21 else 40 endif; nil
+
+var a : T = if(true and true) then (if(true and true) then 50 else 40 endif) else 40 endif;nil
+var a : T = if(true and true) then (if(true and false) then 50 else 40 endif) else 40 endif;nil
+
+var a : T = if(true) then 21 else 40 endif; nil
+
+if(true) then ( var a : T = 20; nil) else (var b : T = 30; nil)
+
 Fatorial
 var x : T = 5; var y :T = 1 ; while(not x eq 0) do (y := mul(y, x) ; x := sub(x, 1))

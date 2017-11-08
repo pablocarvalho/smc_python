@@ -111,7 +111,10 @@ class SMCmachine:
 				self.print_state()
 
 
-			elif(current_node.type == 'conditional'):
+			elif(current_node.type == 'conditional' or current_node.type == 'expression_conditional'):
+
+				if(current_node.type == 'expression_conditional'):
+					self.c.push(current_node.leaf[3])
 
 				child2 = self.load_program(current_node.children[2])
 				if(child2 is not None):			
@@ -127,7 +130,7 @@ class SMCmachine:
 				if(child0 is not None):			
 					self.c.push(child0)
 				self.c.push(current_node.leaf[0])	
-				self.print_state()	
+				self.print_state()			
 
 			elif(current_node.type == 'command_block' or current_node.type == 'booleanexpression_block'):
 				blockContent = Stack()				
@@ -232,8 +235,7 @@ class SMCmachine:
 
 				cmdstack = Stack()
 				cmdstack.items = list(commandblock.command.items)
-				commandblock_copy = Command(cmdstack)	
-
+				commandblock_copy = Command(cmdstack)
 
 				if(eval_result):
 					self.eval_command_block(commandblock_copy)
@@ -255,17 +257,46 @@ class SMCmachine:
 				word_then = self.c.pop()
 				self.print_state()
 
-				commandblock = self.c.pop()				
-				self.print_state()
-				word_else = self.c.pop()
-				self.print_state()
-				elsecommandblock = self.c.pop()
-				self.print_state()
+				nextControlElem = self.c.pop()
 
-				if(eval_result):
-					self.eval_command_block(commandblock)
+				if(isinstance(nextControlElem,Command)):
+					commandblock = nextControlElem				
+					self.print_state()
+					word_else = self.c.pop()
+					self.print_state()
+					elsecommandblock = self.c.pop()
+					self.print_state()
+
+					if(eval_result):
+						self.eval_command_block(commandblock)
+					else:
+						self.eval_command_block(elsecommandblock)
 				else:
-					self.eval_command_block(elsecommandblock)
+					if(eval_result):
+						auxiliarStack = Stack()
+						while(nextControlElem != 'else'):
+							auxiliarStack.push(nextControlElem)
+							nextControlElem = self.c.pop()
+
+						while(nextControlElem != 'endif'):
+							nextControlElem = self.c.pop()
+
+						while(not auxiliarStack.isEmpty()):
+							self.c.push(auxiliarStack.pop())
+
+					else:
+						auxiliarStack = Stack()
+						while(nextControlElem != 'else'):
+							nextControlElem = self.c.pop()
+
+						nextControlElem = self.c.pop()
+						while(nextControlElem != 'endif'):
+							auxiliarStack.push(nextControlElem)
+							nextControlElem = self.c.pop()
+
+						while(not auxiliarStack.isEmpty()):
+							self.c.push(auxiliarStack.pop())
+
 					
 				self.print_state()
 
@@ -276,10 +307,16 @@ class SMCmachine:
 				enviromentPos = self.enviromentSearch(variable)
 
 				if(enviromentPos == -1):
-					raise Exception("variable or constant '"+variable+"' not found")
+					raise Exception("variable '"+variable+"' not found")
+				elif(isinstance(self.e.items[enviromentPos],EnviromentConst)):
+					raise Exception(variable +" is a const")
 				else:
-					self.m.append(MemoryCell(value,variable))
-					self.e.items[enviromentPos].address = len(self.m) - 1 
+					memAddress = self.e.items[enviromentPos]
+					memCell = self.m[memAddress.address]
+					if( type(memCell.data) != type(value) ):
+						raise Exception("trying to store "+ type(value).__name__ +" value in " + type(memCell.data).__name__+ " variable" )
+					else:
+						memCell.data = value
 					
 			elif(control == ';'):
 				self.print_state()
@@ -309,11 +346,12 @@ class SMCmachine:
 				self.print_state();
 	
 	def eval_command_block(self, commandblock):
-		self.debug = False
 
 		actualControlStack = list(self.c.items)
 		self.c.items = commandblock.command.items
 		#print "command_block" + str(actualControlStack)
+
+		actualEnviroment = list(self.e.items)
 
 		while(not self.c.isEmpty() ):
 
@@ -321,8 +359,8 @@ class SMCmachine:
 			self.eval_control(control)
 
 		self.c.items = actualControlStack
+		self.e.items = actualEnviroment
 
-		self.debug = True
 
 
 	def eval_boolean_block(self, booleanblock):
