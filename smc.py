@@ -19,7 +19,150 @@ class SMCmachine:
 			state = '<'+ str(self.e.items) + 'E,  '+ str(self.s.items) + 'S,  ' + str(self.m) + 'M,  ' + str(self.c.items) + 'C>'
 			print state
 
+	def load_and_run(self, current_node):
+		if(isinstance(current_node,nd.Node)):
+			if(current_node.type == 'binop'):
+				self.c.push(current_node)
+				self.load_and_run(current_node.children[1])
+				self.load_and_run(current_node.children[0]) 					 	
+				self.c.pop()
+				self.evaluate_binary_op(current_node.leaf[0])
+				self.print_state()
 
+			elif(current_node.type == 'separator'):
+				self.load_and_run(current_node.children[0])
+				self.load_and_run(current_node.children[1])
+				self.print_state()
+
+			elif(current_node.type == 'assign' or current_node.type == 'boolassign'):
+				self.c.push(current_node)
+				self.load_and_run(current_node.children[0])				
+				self.load_and_run(current_node.children[1])
+
+
+				self.c.pop()
+				value = self.s.pop()
+				variable = self.s.pop()
+				enviromentPos = self.enviromentSearch(variable)
+
+				if(enviromentPos == -1):
+					raise Exception("variable '"+variable+"' not found")
+				elif(isinstance(self.e.items[enviromentPos],EnviromentConst)):
+					raise Exception(variable +" is a const")
+				else:
+					memAddress = self.e.items[enviromentPos]
+					memCell = self.m[memAddress.address]
+					if( type(memCell.data) != type(value) ):
+						raise Exception("trying to store "+ type(value).__name__ +" value in " + type(memCell.data).__name__+ " variable" )
+					else:
+						memCell.data = value
+				
+				
+				self.print_state()
+
+			elif(current_node.type == 'booleanexpression_binop'):
+				self.c.push(current_node)
+				self.load_and_run(current_node.children[0]) 	
+				self.load_and_run(current_node.children[1]) 	
+				self.c.pop()				
+				self.evaluate_binary_bool(current_node.leaf)
+				self.print_state()
+
+			elif(current_node.type == 'booleanexpressionnot'):
+				self.c.push(current_node)
+				child0 = self.load_and_run(current_node.children[0])				
+				value = not self.s.pop()
+				self.s.push(value)
+				self.c.pop()
+				self.print_state()
+
+			elif(current_node.type == 'conditional' or current_node.type == 'expression_conditional'):
+
+				self.c.push(current_node)
+
+				self.load_and_run(current_node.children[0])
+
+				booleanblockResult = self.s.pop()
+				self.print_state()
+
+				
+				if(booleanblockResult == True):
+					self.load_and_run(current_node.children[1])
+				else:
+					self.load_and_run(current_node.children[2])	
+				
+				self.c.pop()
+				self.print_state()
+
+			elif(current_node.type == 'loop'):
+
+				self.c.push(current_node)
+
+				self.load_and_run(current_node.children[0])
+				booleanblockResult = self.s.pop()
+				self.print_state()
+
+				while(booleanblockResult == True):
+					self.load_and_run(current_node.children[1])
+
+					self.load_and_run(current_node.children[0])
+					booleanblockResult = self.s.pop()
+					self.print_state()
+
+				self.c.pop()
+				self.print_state()
+
+			elif(current_node.type == 'command_block'):
+				self.c.push(current_node)				
+
+				actualEnviroment = list(self.e.items)
+
+				self.load_and_run(current_node.children[0])
+
+				self.c.pop()
+				self.e.items = actualEnviroment
+				self.print_state()
+				self.freeMemory()
+				self.print_state()
+
+			elif(current_node.type == 'booleanexpression_block'):
+				self.load_and_run(current_node.children[0])
+				
+
+			elif(current_node.type == 'declaration_const'):
+				self.c.push(current_node)				
+				self.load_and_run(current_node.children[2])								
+				value = self.s.pop() #get a value from values stack
+				constName = current_node.children[0]
+				if(isinstance(value,numbers.Number) or isinstance(value,bool)):
+					self.storeConstOnEnviroment(EnviromentConst(constName,value))					
+				else:
+					raise Exception("Unknown type '"+type(value).__name__+"' when declaring constant")
+
+				self.c.pop()
+				self.print_state()		
+
+			elif(current_node.type == 'declaration_var'):
+				self.c.push(current_node)				
+				self.load_and_run(current_node.children[2])	
+				value = self.s.pop() #get a value from values stack							
+				varName = current_node.children[0]
+				if(isinstance(value,numbers.Number) or isinstance(value,bool)):
+					self.storeVarOnMemory(varName,value)
+				else:
+					raise Exception("Unknown type '"+type(value).__name__+"' when declaring constant")
+
+				self.c.pop()
+				self.print_state()
+				
+		elif(current_node == 'true' or current_node == 'false'):
+			value = (current_node == 'true')
+			self.s.push(value)
+			self.print_state()
+
+		else:
+			self.s.push(current_node)
+			self.print_state()
 
 
 	def load_program(self, current_node):
@@ -380,8 +523,8 @@ class SMCmachine:
 		self.debug = True
 
 	def enviromentSearch(self,varName):
-		index = 0
-		for item in self.e.items:
+		index = len(self.e.items) - 1		
+		for item in reversed(self.e.items):			
 			if(isinstance(item,EnviromentConst)):
 				if(item.name == varName):
 					return index
@@ -389,7 +532,7 @@ class SMCmachine:
 				memoryCell = self.m[item.address]
 				if(memoryCell.variableName == varName):
 					return index
-			index+=1
+			index-=1
 
 		return -1
 
@@ -432,14 +575,7 @@ class SMCmachine:
 			else:
 				raise Exception("impossible to compare values "+ str(op1) + " and " + str(op2))
 
-		else:
-			#if(isinstance(op1,str) and not (op1 == 'true' or op1 == 'false')):
-			#	self.loadFromMemoryToS(op1)
-			#	op1 = self.s.pop();		
-			#if(isinstance(op2,str)and not (op2 == 'true' or op2 == 'false')):
-			#	self.loadFromMemoryToS(op2)
-			#	op2 = self.s.pop();			
-			#self.print_state()
+		else:			
 			if(operator == 'and'):
 				self.s.push(op1 and op2)
 			if(operator == 'or'):
@@ -463,27 +599,17 @@ class SMCmachine:
 			self.print_state()
 
 	def storeConstOnEnviroment(self,enviromentConst):
-
-		#check for 
-		for envItem in self.e.items:
-			if(isinstance(envItem,EnviromentConst)):
-				if(envItem.name == enviromentConst.name):
-					raise Exception("const "+envItem.name+ " already declared on enviroment")
-
 		self.e.push(enviromentConst)
 
 	def storeVarOnMemory(self,varName,varValue):
-		for memItem in self.m:
-			if(memItem.variableName == varName):
-				raise Exception("variable "+varName+ " already defined")
-
+		
 		self.m.append(MemoryCell(varValue,varName))
 		self.e.push(MemoryAddress(type(varValue),len(self.m) - 1))			
 				
 
 	def loadFromEnviroment(self, varName):
 
-		for envItem in self.e.items:
+		for envItem in reversed(self.e.items):
 			if(isinstance(envItem,EnviromentConst) and envItem.name == varName):
 				self.s.push(envItem.value)
 			elif(isinstance(envItem,MemoryAddress)):
@@ -491,7 +617,24 @@ class SMCmachine:
 				if(memoryCell.variableName == varName):
 					self.s.push(memoryCell.data)			
 
+	def freeMemory(self):
+		itemFound = False
 
+		for idx in range(len(self.m)):
+			memItem = self.m[idx]
+
+			itemFound = False
+			for envItem in self.e.items:				
+				if(isinstance(envItem,MemoryAddress)):
+					memoryCell = self.m[envItem.address]
+					if(memItem == memoryCell):						
+						itemFound = True
+						break
+
+			if(itemFound == False):				
+				self.m[idx] = None
+
+		self.m = filter(None,self.m)
 
 
 class Stack:

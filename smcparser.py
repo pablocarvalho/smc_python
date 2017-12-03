@@ -206,12 +206,12 @@ class Calc(Parser):
         p[0] = nd.Node("separator", [p[1],p[3]], p[2])
 
     def p_command_block(self, p):
-        'command : LPAREN command RPAREN'
+        'command_block : LPAREN command RPAREN'
         p[0] = nd.Node("command_block", [p[2]], [p[1],p[3]])        
         
 
     def p_command_conditional(self,p):
-        'command : IF booleanexpression THEN command ELSE command'
+        'command : IF booleanexpression THEN command_block ELSE command_block'
         p[0] = nd.Node("conditional", [p[2],p[4],p[6]], [p[1],p[3],p[5]])             
 
     def p_command_loop(self,p):
@@ -288,8 +288,10 @@ class Calc(Parser):
         p[0] = p[1]
 
     def p_expression_conditional(self,p):
-        'expression : IF booleanexpression THEN expression ELSE expression ENDIF'
-        p[0] = nd.Node("expression_conditional", [p[2],p[4],p[6]], [p[1],p[3],p[5],p[7]])        
+        #'expression : IF booleanexpression THEN expression ELSE expression ENDIF'
+        #p[0] = nd.Node("expression_conditional", [p[2],p[4],p[6]], [p[1],p[3],p[5],p[7]])        
+        'expression : IF booleanexpression THEN expression ELSE expression'
+        p[0] = nd.Node("expression_conditional", [p[2],p[4],p[6]], [p[1],p[3],p[5]])        
 
     def p_expression_name(self, p):
         'expression : NAME'

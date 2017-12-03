@@ -41,3 +41,22 @@ if(true) then ( var a : T = 20; nil) else (var b : T = 30; nil)
 
 Fatorial
 var x : T = 5; var y :T = 1 ; while(not x eq 0) do (y := mul(y, x) ; x := sub(x, 1))
+
+
+Testes novos:
+
+var b : T = true; b := b and false
+
+var a : T = if(true and true) then (if(true and true) then 50 else 40) else 40;nil
+
+var x : T = 5; var y : T = 1 ; while(not x eq 0) do (y := mul(y x) ; x := sub(x 1))
+
+var x : T = 0; while (not x eq 10) do ( x:= add(x 1))
+
+var a : T = 20; if(a eq 20) then (var b : T = 30; nil) else (var c : T = 40; nil)
+
+teste para memória:
+
+var x : T = 20; if(true and true) then (var x : T = 30; x := add(x 5)) else (nil); x := add(x 10)
+
+var x : T = 20; if(true and true) then (var x : T = 30; var a : T = 1; var b : T = 2; x := add(x 5)) else (nil); x := add(x 10)
