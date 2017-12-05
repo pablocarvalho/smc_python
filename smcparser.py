@@ -115,6 +115,8 @@ class Calc(Parser):
         'var':'VAR',
         'T':'TYPE',
         'endif':'ENDIF',
+        'print':'PRINT',
+        'proc':'PROC',        
         
     }
 
@@ -122,6 +124,7 @@ class Calc(Parser):
         'NAME', 'NUMBER',        
         'EQUALS',
         'LPAREN', 'RPAREN',
+        'LBRACE', 'RBRACE',
         'SEMI', 
         'COMA','ATRIB'
     ]
@@ -136,6 +139,8 @@ class Calc(Parser):
     t_EQUALS = r':='
     t_LPAREN = r'\('
     t_RPAREN = r'\)'
+    t_LBRACE = r'\{'
+    t_RBRACE = r'\}'
     t_COMA = r':'
     t_ATRIB = r'='
 
@@ -206,7 +211,7 @@ class Calc(Parser):
         p[0] = nd.Node("separator", [p[1],p[3]], p[2])
 
     def p_command_block(self, p):
-        'command_block : LPAREN command RPAREN'
+        'command_block : LBRACE command RBRACE'
         p[0] = nd.Node("command_block", [p[2]], [p[1],p[3]])        
         
 
@@ -218,12 +223,20 @@ class Calc(Parser):
         'command : WHILE booleanexpression DO command'
         p[0] = nd.Node("loop", [p[2],p[4]], [p[1],p[3]])   
 
+    def p_command_print(self,p):
+        """command : PRINT LPAREN expression RPAREN
+                   | PRINT LPAREN booleanexpression RPAREN """
+        p[0] = nd.Node("print",[p[3]],[p[1]])
+
+    def p_command_procedureCall(self,p):
+        'command : NAME LPAREN parameters RPAREN'
+        p[0] = nd.Node("procedure_call",[p[1],p[3]],[])
+
+
    
     # Fim da definicao de comandos ======================================================
 
-
-
-
+   
 
 
     def p_booleanexpression_binop(self,p):
@@ -288,8 +301,6 @@ class Calc(Parser):
         p[0] = p[1]
 
     def p_expression_conditional(self,p):
-        #'expression : IF booleanexpression THEN expression ELSE expression ENDIF'
-        #p[0] = nd.Node("expression_conditional", [p[2],p[4],p[6]], [p[1],p[3],p[5],p[7]])        
         'expression : IF booleanexpression THEN expression ELSE expression'
         p[0] = nd.Node("expression_conditional", [p[2],p[4],p[6]], [p[1],p[3],p[5]])        
 
@@ -320,6 +331,23 @@ class Calc(Parser):
     def p_declaration_boolvar(self,p):
         'declaration : VAR NAME COMA TYPE ATRIB booleanexpression '
         p[0] = nd.Node("declaration_var", [p[2],p[4],p[6]], [p[1],p[3],p[5]])
+
+    def p_declaration_procedure(self,p):
+        'declaration : PROC NAME LPAREN declParameters RPAREN commandblock'
+        p[0] = nd.Node("declaration_procedure",[p[2],p[4],p[6]], [p[1]])
+
+    def p_declaration_parameter(self,p):
+        'declarationParameter: TYPE VAR NAME'
+        p[0] = nd.Node("declaration_procedure",[p[1],p[2],p[3]], [])
+
+    def p_declaration_parameters(self,p):
+        'declarationParameters : declarationParameter'
+        p[0] = nd.Node("declaration_procedure",[p[1]], [])
+
+    def p_declaration_parameters(self,p):
+        'declParameters : declarationParameter SEMI declarationParameter'
+        p[0] = nd.Node("declaration_procedure",[p[1]], [])
+
     #==============================================================================
 
     def p_error(self, p):
