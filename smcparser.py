@@ -113,10 +113,13 @@ class Calc(Parser):
         'bol':'BOL',
         'const':'CONST',
         'var':'VAR',
-        'T':'TYPE',
-        'endif':'ENDIF',
+        #'T':'TYPE',
         'print':'PRINT',
         'proc':'PROC',        
+        'rproc':'RPROC',
+        'boolean' : 'BOOLEAN',
+        'int' : 'INT',
+        'return' : 'RETURN',
         
     }
 
@@ -141,7 +144,7 @@ class Calc(Parser):
     t_RPAREN = r'\)'
     t_LBRACE = r'\{'
     t_RBRACE = r'\}'
-    t_COMA = r':'
+    #t_COMA = r':'
     t_ATRIB = r'='
 
     def t_NAME(self,t):
@@ -207,8 +210,8 @@ class Calc(Parser):
         p[0] = nd.Node("separator", [p[1],p[3]], p[2])
 
     def p_command_declaration(self, p):
-        'command : declaration SEMI command'
-        p[0] = nd.Node("separator", [p[1],p[3]], p[2])
+        'command : declaration'
+        p[0] = nd.Node("declaration", [p[1]])
 
     def p_command_block(self, p):
         'command_block : LBRACE command RBRACE'
@@ -220,7 +223,7 @@ class Calc(Parser):
         p[0] = nd.Node("conditional", [p[2],p[4],p[6]], [p[1],p[3],p[5]])             
 
     def p_command_loop(self,p):
-        'command : WHILE booleanexpression DO command'
+        'command : WHILE booleanexpression DO command_block'
         p[0] = nd.Node("loop", [p[2],p[4]], [p[1],p[3]])   
 
     def p_command_print(self,p):
@@ -232,9 +235,25 @@ class Calc(Parser):
         'command : NAME LPAREN parameters RPAREN'
         p[0] = nd.Node("procedure_call",[p[1],p[3]],[])
 
+    def p_command_return(self,p):
+        """command : RETURN expression
+                    | RETURN booleanexpression"""
+        p[0] = nd.Node("return",[p[2]],[p[1]])
+
 
    
     # Fim da definicao de comandos ======================================================
+
+    def p_parameters_single(self,p):
+        """parameters : expression 
+                      | booleanexpression"""
+        p[0] = nd.Node("single_parameter",[p[1]],[])
+
+    def p_parameters_chain(self,p):
+        """ parameters : expression SEMI parameters 
+                       | booleanexpression SEMI parameters
+                        """
+        p[0] = nd.Node("chain_parameter",[p[1],p[3]],[p[2]])   
 
    
 
@@ -267,6 +286,14 @@ class Calc(Parser):
     def p_booleanexpression_var(self, p):
         'booleanexpression : NAME'
         p[0] = p[1]
+
+    def p_type_boolean(self,p):
+        "type : BOOLEAN"
+        p[0] = nd.Node("type_boolean",[p[1]],[])
+
+    def p_type_int(self,p):
+        "type : INT"
+        p[0] = nd.Node("type_int",[p[1]],[])
 
 
 
@@ -304,6 +331,10 @@ class Calc(Parser):
         'expression : IF booleanexpression THEN expression ELSE expression'
         p[0] = nd.Node("expression_conditional", [p[2],p[4],p[6]], [p[1],p[3],p[5]])        
 
+    def p_expression_function(self,p):
+        'expression : NAME LPAREN parameters RPAREN'
+        p[0] = nd.Node("function_call",[p[1],p[3]],[])
+
     def p_expression_name(self, p):
         'expression : NAME'
         p[0] = p[1]
@@ -317,36 +348,40 @@ class Calc(Parser):
 
     #Declaracoes===================================================================
     def p_declaration_const(self,p):
-        'declaration : CONST NAME COMA TYPE ATRIB expression '
-        p[0] = nd.Node("declaration_const", [p[2],p[4],p[6]], [p[1],p[3],p[5]])
+        'declaration : CONST type NAME ATRIB expression '
+        p[0] = nd.Node("declaration_const", [p[2],p[3],p[5]], [p[1],p[4]])
 
     def p_declaration_var(self,p):
-        'declaration : VAR NAME COMA TYPE ATRIB expression '
-        p[0] = nd.Node("declaration_var", [p[2],p[4],p[6]], [p[1],p[3],p[5]])
+        'declaration : VAR type NAME ATRIB expression '
+        p[0] = nd.Node("declaration_var", [p[2],p[3],p[5]], [p[1],p[4]])
 
     def p_declaration_boolconst(self,p):
-        'declaration : CONST NAME COMA TYPE ATRIB booleanexpression '
-        p[0] = nd.Node("declaration_const", [p[2],p[4],p[6]], [p[1],p[3],p[5]])
+        'declaration : CONST type NAME ATRIB booleanexpression '
+        p[0] = nd.Node("declaration_const", [p[2],p[3],p[5]], [p[1],p[4]])
 
     def p_declaration_boolvar(self,p):
-        'declaration : VAR NAME COMA TYPE ATRIB booleanexpression '
-        p[0] = nd.Node("declaration_var", [p[2],p[4],p[6]], [p[1],p[3],p[5]])
+        'declaration : VAR type NAME ATRIB booleanexpression '
+        p[0] = nd.Node("declaration_var", [p[2],p[3],p[5]], [p[1],p[4]])
 
     def p_declaration_procedure(self,p):
-        'declaration : PROC NAME LPAREN declParameters RPAREN commandblock'
+        'declaration : PROC NAME LPAREN declarationParameters RPAREN command_block'
         p[0] = nd.Node("declaration_procedure",[p[2],p[4],p[6]], [p[1]])
 
+    def p_declaration_recursiveprocedure(self,p):
+        'declaration : RPROC NAME LPAREN declarationParameters RPAREN command_block'
+        p[0] = nd.Node("declaration_recursiveprocedure",[p[2],p[4],p[6]], [p[1]])
+
     def p_declaration_parameter(self,p):
-        'declarationParameter: TYPE VAR NAME'
-        p[0] = nd.Node("declaration_procedure",[p[1],p[2],p[3]], [])
+        'declarationParameter : VAR type NAME'
+        p[0] = nd.Node("declaration_parameter",[p[1],p[2],p[3]], [])
 
     def p_declaration_parameters(self,p):
         'declarationParameters : declarationParameter'
-        p[0] = nd.Node("declaration_procedure",[p[1]], [])
+        p[0] = nd.Node("declaration_parameterHead",[p[1]], [])
 
-    def p_declaration_parameters(self,p):
-        'declParameters : declarationParameter SEMI declarationParameter'
-        p[0] = nd.Node("declaration_procedure",[p[1]], [])
+    def p_declaration_parametersChain(self,p):
+        'declarationParameters : declarationParameter SEMI declarationParameter'
+        p[0] = nd.Node("declaration_parameterList",[p[1],p[3]], [p[2]])
 
     #==============================================================================
 

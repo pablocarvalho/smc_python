@@ -3,8 +3,6 @@ import ply.yacc as yacc
 import os
 import numbers
 import node as nd
-from enum import Enum
-
 
 class SMCmachine:
 	def __init__(self):         
@@ -12,7 +10,7 @@ class SMCmachine:
          self.m = []
          self.c = Stack()
          self.e = Stack()
-         self.debug = True
+         self.debug = False
 
 	def print_state(self):
 		if(self.debug == True):
@@ -46,7 +44,7 @@ class SMCmachine:
 				enviromentPos = self.enviromentSearch(variable)
 
 				if(enviromentPos == -1):
-					raise Exception("variable '"+variable+"' not found")
+					raise Exception("variable '"+str(variable)+"' not found")
 				elif(isinstance(self.e.items[enviromentPos],EnviromentConst)):
 					raise Exception(variable +" is a const")
 				else:
@@ -133,7 +131,7 @@ class SMCmachine:
 				self.c.push(current_node)				
 				self.load_and_run(current_node.children[2])								
 				value = self.s.pop() #get a value from values stack
-				constName = current_node.children[0]
+				constName = current_node.children[1]
 				if(isinstance(value,numbers.Number) or isinstance(value,bool)):
 					self.storeConstOnEnviroment(EnviromentConst(constName,value))					
 				else:
@@ -146,7 +144,7 @@ class SMCmachine:
 				self.c.push(current_node)				
 				self.load_and_run(current_node.children[2])	
 				value = self.s.pop() #get a value from values stack							
-				varName = current_node.children[0]
+				varName = current_node.children[1]
 				if(isinstance(value,numbers.Number) or isinstance(value,bool)):
 					self.storeVarOnMemory(varName,value)
 				else:
@@ -154,339 +152,157 @@ class SMCmachine:
 
 				self.c.pop()
 				self.print_state()
+			
+			elif(current_node.type == 'declaration_procedure'):
+				self.c.push(current_node)
+				parameterList = []
+				parameterList = self.loadParameterList(current_node.children[1])				
+				procedure = ProcedureLink(current_node.children[0],parameterList,current_node.children[2])
+				self.e.push(procedure)
+				self.c.pop()
+				self.print_state()
+
+
+			elif(current_node.type == 'procedure_call'):
+				self.c.push(current_node)
+				self.load_and_run(current_node.children[1])
+
+				procedure = self.findProcedure(current_node.children[0])
+				if(procedure == None):
+					raise Exception("Procedure " + current_node.children[0] + " not found")
+				else:
+					actualEnviroment = list(self.e.items)
+					parameterList = procedure.parameterList
+					#cria novas variaveis
+					for parameter in reversed(parameterList):						
+						value = self.s.pop()
+						if(isinstance(value,str)):
+							self.loadFromMemoryToS(value)
+							value = self.s.pop()
+						node = nd.Node("declaration_var", [parameter.children[0],parameter.children[2],value], ['var','='])
+						self.load_and_run(node)
+
+					self.load_and_run(procedure.commandBlock)
+
+					self.c.pop()
+					self.e.items = actualEnviroment
+					self.print_state()
+					self.freeMemory()
+					self.print_state()
+
+			elif(current_node.type == 'function_call'):
+				self.c.push(current_node)
+				self.load_and_run(current_node.children[1])
+
+				procedure = self.findProcedure(current_node.children[0])
+				if(procedure == None):
+					raise Exception("Function " + current_node.children[0] + " not found")
+				else:
+					actualEnviroment = list(self.e.items)
+					parameterList = procedure.parameterList
+					#cria novas variaveis
+					for parameter in reversed(parameterList):						
+						value = self.s.pop()
+						if(isinstance(value,str)):
+							self.loadFromMemoryToS(value)
+							value = self.s.pop()
+						node = nd.Node("declaration_var", [parameter.children[0],parameter.children[2],value], ['var','='])
+						self.load_and_run(node)
+
+					self.load_and_run(procedure.commandBlock)
+
+					self.c.pop()
+					self.e.items = actualEnviroment
+					self.print_state()
+					self.freeMemory()
+					self.print_state()
+
+			elif(current_node.type == 'chain_parameter'):
+				self.c.push(current_node)				
+				self.load_and_run(current_node.children[0])
+				self.load_and_run(current_node.children[1])
+				self.c.pop()
+				self.print_state()
+
+			elif(current_node.type == 'single_parameter'):
+				self.c.push(current_node)				
+				self.load_and_run(current_node.children[0])
+				self.c.pop()
+				self.print_state()
+
+			elif(current_node.type == 'print'):
+				self.c.push(current_node)
+				self.load_and_run(current_node.children[0])
+				value = self.s.pop()
+
+				if(isinstance(value,str)):
+					self.c.push(value)
+					self.loadFromMemoryToS(value)
+					self.c.pop()
+					self.print_state()
+					value = self.s.pop()
+					
+				print "output: " + str(value)
+				self.c.pop()
+				self.print_state()
+
+			elif(current_node.type == 'declaration'):
+				self.c.push(current_node)
+				self.load_and_run(current_node.children[0])
+				self.c.pop()
+				self.print_state()
+
+			elif(current_node.type == 'return'):
+				self.c.push(current_node)
+				self.load_and_run(current_node.children[0])
+				value = self.s.pop()
+				if(isinstance(value,str)):
+					self.loadFromMemoryToS(value)
+				else:
+					self.s.push(value)
+				self.c.pop()
+				self.print_state()
+
+
 				
 		elif(current_node == 'true' or current_node == 'false'):
 			value = (current_node == 'true')
 			self.s.push(value)
-			self.print_state()
+			self.print_state()	
 
 		else:
 			self.s.push(current_node)
 			self.print_state()
 
+	def loadParameterList(self,parameterListNode):
+		numOfParams = self.travelParameterList(parameterListNode)
+		parameterList = []
+		for i in range (0, numOfParams):
+			parameterList.append(self.c.pop())
+		return parameterList
 
-	def load_program(self, current_node):
+	def travelParameterList(self,parameterListNode):
+		if(parameterListNode.type == 'declaration_parameter'):
+			self.c.push(parameterListNode)
+			return 1
+		elif(parameterListNode.type == 'declaration_parameterList'):
+			numA = self.travelParameterList(parameterListNode.children[0]);
+			numB = self.travelParameterList(parameterListNode.children[1]);
+			return numA+numB
+		elif(parameterListNode.type == 'declaration_parameterHead'):
+			numA = self.travelParameterList(parameterListNode.children[0]);
+			return numA
 
-		if(isinstance(current_node,nd.Node)):
-			if(current_node.type == 'binop'):
-				self.c.push(current_node.leaf[0])
-				child0 = self.load_program(current_node.children[0]) 	
-				child1 = self.load_program(current_node.children[1]) 	
-				if(child0 is not None):			
-					self.c.push(child0)
-				if(child1 is not None):			
-					self.c.push(child1)
-				self.print_state()
-
-			elif(current_node.type == 'separator'):
-				
-				child1 = self.load_program(current_node.children[1])
-				if(child1 is not None):			
-					self.c.push(child1)
-				
-				self.c.push(current_node.leaf[0])
-
-				child0 = self.load_program(current_node.children[0]) 					
-				if(child0 is not None):			
-					self.c.push(child0)
-
-				self.print_state()
-
-			elif(current_node.type == 'assign'):
-
-				child0 = self.load_program(current_node.children[0]) 					
-				if(child0 is not None):			
-					self.c.push(child0)
-				self.c.push(str(current_node.leaf))
-				child1 = self.load_program(current_node.children[1])
-				if(child1 is not None):			
-					self.c.push(child1)
-				
-				self.print_state()
-
-			elif(current_node.type == 'booleanexpression_binop'):
-				self.c.push(str(current_node.leaf))
-				child0 = self.load_program(current_node.children[0]) 	
-				child1 = self.load_program(current_node.children[1]) 	
-				if(child0 is not None):			
-					self.c.push(child0)
-				if(child1 is not None):			
-					self.c.push(child1)
-				self.print_state()
-			
-			elif(current_node.type == 'boolassign'):
-
-				child0 = self.load_program(current_node.children[0]) 					
-				if(child0 is not None):			
-					self.c.push(child0)
-				self.c.push(str(current_node.leaf))
-				child1 = self.load_program(current_node.children[1])
-				if(child1 is not None):			
-					self.c.push(child1)
-				
-				self.print_state()
-			elif(current_node.type == 'booleanvalues'):
-				self.c.push(current_node.leaf)
-				
-				self.print_state()
-			
-			elif(current_node.type == 'booleanexpressionnot'):
-				self.c.push(str(current_node.leaf))
-				child0 = self.load_program(current_node.children[0]) 					
-				if(child0 is not None):			
-					self.c.push(child0)
-				
-				
-				self.print_state()
-
-			elif(current_node.type == 'loop'):
-
-				
-				child1 = self.load_program(current_node.children[1])
-				if(child1 is not None):			
-					self.c.push(child1)
-
-				self.c.push(current_node.leaf[1])	
-				child0 = self.load_program(current_node.children[0]) 					
-				if(child0 is not None):			
-					self.c.push(child0)
-				self.c.push(current_node.leaf[0])	
-				self.print_state()
+	def findProcedure(self, procedureName):
+		enviroment = self.e.items
+		index = len(self.e.items) - 1		
+		for item in reversed(self.e.items):			
+			if(isinstance(item,ProcedureLink)):
+				if(item.procedureName == procedureName):
+					return item
+		return None
 
 
-			elif(current_node.type == 'conditional' or current_node.type == 'expression_conditional'):
-
-				if(current_node.type == 'expression_conditional'):
-					self.c.push(current_node.leaf[3])
-
-				child2 = self.load_program(current_node.children[2])
-				if(child2 is not None):			
-					self.c.push(child2)
-				self.c.push(current_node.leaf[2])
-
-				child1 = self.load_program(current_node.children[1])
-				if(child1 is not None):			
-					self.c.push(child1)
-
-				self.c.push(current_node.leaf[1])	
-				child0 = self.load_program(current_node.children[0]) 					
-				if(child0 is not None):			
-					self.c.push(child0)
-				self.c.push(current_node.leaf[0])	
-				self.print_state()			
-
-			elif(current_node.type == 'command_block' or current_node.type == 'booleanexpression_block'):
-				blockContent = Stack()				
-				self.c.push(current_node.leaf[0])
-				first_par_pos = self.c.size() - 1
-				child0 = self.load_program(current_node.children[0]) 										
-				self.c.push(current_node.leaf[1])				
-				last_par_pos = self.c.size() - 1
-				self.print_state()
-
-				block_elements_list = self.c.items[ (first_par_pos+1) : (last_par_pos) ]   
-				blockContent.items = block_elements_list
-				
-
-				del self.c.items[first_par_pos:last_par_pos+1]
-
-				if(current_node.type == 'command_block'):
-					commandBlock = Command(blockContent)
-					self.c.push(commandBlock)
-				else:
-					commandBlock = BooleanBlock(blockContent)
-					self.c.push(commandBlock)
-
-							
-
-				self.print_state()
-
-			elif(current_node.type == 'declaration_var'):
-				child0 = self.load_program(current_node.children[0]) 					
-				if(child0 is not None):			
-					self.c.push(child0)
-				self.c.push(str(current_node.leaf[0]))
-				child1 = self.load_program(current_node.children[2])
-				if(child1 is not None):			
-					self.c.push(child1)
-				
-				self.print_state()
-
-			elif(current_node.type == 'declaration_const'):
-				child0 = self.load_program(current_node.children[0]) 					
-				if(child0 is not None):			
-					self.c.push(child0)
-				self.c.push(str(current_node.leaf[0]))
-				child1 = self.load_program(current_node.children[2])
-				if(child1 is not None):			
-					self.c.push(child1)
-				
-				self.print_state()
-
-		else:
-			return current_node		
-
-
-	def run_program(self):
-
-		print "\n running program \n"
-		while(not self.c.isEmpty() ):
-
-			control = self.c.pop()
-			self.eval_control(control)
-
-		
-		self.print_state();
-
-
-	def eval_control(self, control):
-		if(isinstance(control,numbers.Number)):
-				self.s.push(control)
-				self.print_state();
-
-		elif(isinstance(control,str)):
-			if(control == 'add' or control == 'div' or control == 'mul' or control == 'sub'):
-				self.evaluate_binary_op(control)	
-				
-			elif(control == 'and' or control == 'or' or control == 'eq'):
-				self.evaluate_binary_bool(control)	
-				
-			elif(control=='true' or control=='false'):
-				value = self.s.push(control == 'true');					
-				self.print_state();
-
-			elif(control =='not'):
-				value = self.s.pop();
-				self.s.push(not value)
-
-			elif(control=='while'):
-				self.print_state();
-				booleanblock = self.c.pop()
-
-				
-				boolstack = Stack()
-				boolstack.items = list(booleanblock.content.items)
-				booleanblock_copy = BooleanBlock(boolstack)
-				self.eval_boolean_block(booleanblock_copy)
-
-				self.print_state();
-				eval_result = self.s.pop()
-				do_word = self.c.pop()
-				self.print_state();
-
-				commandblock = self.c.pop()
-
-				cmdstack = Stack()
-				cmdstack.items = list(commandblock.command.items)
-				commandblock_copy = Command(cmdstack)
-
-				if(eval_result):
-					self.eval_command_block(commandblock_copy)
-
-					self.c.push(commandblock)	
-					self.c.push(do_word)
-					self.c.push(booleanblock)
-					self.c.push(control)
-					self.print_state()
-
-			elif(control == 'if'):
-				booleanblock = self.c.pop()
-				self.print_state()
-				self.eval_boolean_block(booleanblock)
-
-				self.print_state()
-				eval_result = self.s.pop()
-				self.print_state()
-				word_then = self.c.pop()
-				self.print_state()
-
-				nextControlElem = self.c.pop()
-
-				if(isinstance(nextControlElem,Command)):
-					commandblock = nextControlElem				
-					self.print_state()
-					word_else = self.c.pop()
-					self.print_state()
-					elsecommandblock = self.c.pop()
-					self.print_state()
-
-					if(eval_result):
-						self.eval_command_block(commandblock)
-					else:
-						self.eval_command_block(elsecommandblock)
-				else:
-					if(eval_result):
-						auxiliarStack = Stack()
-						while(nextControlElem != 'else'):
-							auxiliarStack.push(nextControlElem)
-							nextControlElem = self.c.pop()
-
-						while(nextControlElem != 'endif'):
-							nextControlElem = self.c.pop()
-
-						while(not auxiliarStack.isEmpty()):
-							self.c.push(auxiliarStack.pop())
-
-					else:
-						auxiliarStack = Stack()
-						while(nextControlElem != 'else'):
-							nextControlElem = self.c.pop()
-
-						nextControlElem = self.c.pop()
-						while(nextControlElem != 'endif'):
-							auxiliarStack.push(nextControlElem)
-							nextControlElem = self.c.pop()
-
-						while(not auxiliarStack.isEmpty()):
-							self.c.push(auxiliarStack.pop())
-
-					
-				self.print_state()
-
-					
-			elif(control == ':='):
-				variable = self.c.pop();
-				value = self.s.pop();
-				enviromentPos = self.enviromentSearch(variable)
-
-				if(enviromentPos == -1):
-					raise Exception("variable '"+variable+"' not found")
-				elif(isinstance(self.e.items[enviromentPos],EnviromentConst)):
-					raise Exception(variable +" is a const")
-				else:
-					memAddress = self.e.items[enviromentPos]
-					memCell = self.m[memAddress.address]
-					if( type(memCell.data) != type(value) ):
-						raise Exception("trying to store "+ type(value).__name__ +" value in " + type(memCell.data).__name__+ " variable" )
-					else:
-						memCell.data = value
-					
-			elif(control == ';'):
-				self.print_state()
-
-			elif(control == 'const'):				
-				constName = self.c.pop()
-				value = self.s.pop() #get a value from values stack
-				if(isinstance(value,numbers.Number) or isinstance(value,bool)):
-					self.storeConstOnEnviroment(EnviromentConst(constName,value))					
-				else:
-					raise Exception("Unknown type '"+type(value).__name__+"' when declaring constant")
-
-				self.print_state()
-
-			elif(control == 'var'):				
-				varName = self.c.pop()
-				value = self.s.pop() #get a value from values stack
-				if(isinstance(value,numbers.Number) or isinstance(value,bool)):
-					self.storeVarOnMemory(varName,value)
-				else:
-					raise Exception("Unknown type '"+type(value).__name__+"' when declaring constant")
-
-				self.print_state()
-
-			else:
-				self.s.push(control)
-				self.print_state();
 	
 	def eval_command_block(self, commandblock):
 
@@ -587,7 +403,7 @@ class SMCmachine:
 		address = self.enviromentSearch(varName)
 
 		if(address == -1):
-			raise Exception("var '" +varName +"' not found")
+			raise Exception("var '" +str(varName) +"' not found")
 		else:
 			enviromentItem = self.e.items[address]
 			if(isinstance(enviromentItem,EnviromentConst)):
@@ -698,5 +514,14 @@ class Value:
 		self.command = comandstring
 	def __repr__(self):
 		return "v("+str(self.command)+")"
+
+class ProcedureLink:
+	def __init__(self, procedureName,parameterList, commandBlock):
+		self.procedureName = procedureName
+		self.parameterList = parameterList
+		self.commandBlock = commandBlock
+
+	def __repr__(self):
+		return "procLink(" +self.procedureName+ ")"
 
 

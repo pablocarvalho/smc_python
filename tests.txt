@@ -1,62 +1,20 @@
-a := 1; if (a=1) then nil else nil
+Teste procedimento
 
-x := 1; while(tt or tt) do ( x := add(x 1) )
+var int x = 10; proc soma(var int l){l:=add(l 2); print(l)}; soma(x)
 
-x := 0; while (not( x eq 10)) do ( x:= add(x 1))
+var int x = 5; var int y = 1 ; while(not x eq 0) do {y := mul(y x) ; x := sub(x 1)}
 
+var int x = 5; proc fatorial(var int x) {var int y = 1 ; while(not x eq 0) do {y := mul(y x) ; x := sub(x 1)};print(y)}; fatorial(x)
 
+var int x = 5; proc recDecCounter(var int x){if(not x eq 0)then{print(x);recDecCounter(sub(x 1))}else{print(x)}}; recDecCounter(x)
 
-Contador
-x := 0; while (not x eq 10) do ( x:= add(x 1))
-
-Fatorial
-x:=5; y := 1 ; while(not x eq 0) do (y := mul(y, x) ; x := sub(x, 1))
-
-testes condicional
-x:= 0 ; if(not x eq 0) then (x:=1) else (x:=10)
-
-x:= 0 ; if(x eq 0) then (x:=1) else (x:=10)
+var int k = 1; proc number(var int v){return 10}; k := number(1); print(k)
 
 
 
-Testes para versão com enviroment:
 
-var a : T = 20; var b : T = 30; var c : T = add(a b); nil
+var int x = 5; proc fibonacci(var int x){ if( (x eq 0) or (x eq 1)) then {return 1} else {return( add( fibonacci(sub(x 1)) fibonacci(sub (x 2)) ) )}}; print(fibonacci(x))
 
-const a : T = 20; var b : T = 30; var c : T = add(a b); nil
-
-const a : T = 20; var b : T = 30; b := add(a b)
-
-var a : T = 20; if(a eq 20) then (var b : T = 30; nil) else (var c : T = 40; nil)
-
-var a : T = if(true and true) then 21 else 40 endif; nil
-var a : T = if(true and false) then 21 else 40 endif; nil
-
-var a : T = if(true and true) then (if(true and true) then 50 else 40 endif) else 40 endif;nil
-var a : T = if(true and true) then (if(true and false) then 50 else 40 endif) else 40 endif;nil
-
-var a : T = if(true) then 21 else 40 endif; nil
-
-if(true) then ( var a : T = 20; nil) else (var b : T = 30; nil)
-
-Fatorial
-var x : T = 5; var y :T = 1 ; while(not x eq 0) do (y := mul(y, x) ; x := sub(x, 1))
+var int x = 10; proc fibonacci(var int x){ if( (x eq 0) or (x eq 1)) then {return 1} else {return( add( fibonacci(sub(x 1)) fibonacci(sub (x 2)) ) )}}; while(not x eq 0) do {print(fibonacci(x)); x := sub(x 1)}
 
 
-Testes novos:
-
-var b : T = true; b := b and false
-
-var a : T = if(true and true) then (if(true and true) then 50 else 40) else 40;nil
-
-var x : T = 5; var y : T = 1 ; while(not x eq 0) do (y := mul(y x) ; x := sub(x 1))
-
-var x : T = 0; while (not x eq 10) do ( x:= add(x 1))
-
-var a : T = 20; if(a eq 20) then (var b : T = 30; nil) else (var c : T = 40; nil)
-
-teste para memória:
-
-var x : T = 20; if(true and true) then (var x : T = 30; x := add(x 5)) else (nil); x := add(x 10)
-
-var x : T = 20; if(true and true) then (var x : T = 30; var a : T = 1; var b : T = 2; x := add(x 5)) else (nil); x := add(x 10)
